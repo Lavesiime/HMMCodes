@@ -1,4 +1,4 @@
-Code "Enable Super Peel Out" in "Gameplay/Sonic 3 & Knuckles/Abilities/Sonic" by "MegAmi" does
+Code "Enable Super Peel Out" in "Gameplay/Sonic 3 & Knuckles/Abilities/Sonic" by "MegAmi & Lave sIime" does
 /*
 Enables Sonic's Super Peel Out move from Sonic CD.
 
@@ -7,8 +7,41 @@ Notes;
 */
 //
     #lib "RSDK"
+
+    static bool _isInitialised = false;
 //
 {
+    if (!_isInitialised)
+    {
+        // Fix the MGZ2 DrillMobile crash that occurs with the cheat active when P2 Tails spawns in
+        WriteAsmHook
+        (
+            $@"
+                ; fetch Player::sVars->classID, back it up, and set edx to 0 to make sure we reset P2 into a BlankObject class
+                movzx  edx, word ptr [rcx]
+                mov    rdi, rdx
+                xor    edx, edx
+                
+                ; (existing code, call ResetEntity on P2)
+                mov    rcx, rax
+                call   qword ptr [r9 + 0x60]
+                mov    rcx, rsi
+                
+                ; fetch the Player classID that we had saved from before, and set P2 classID's to that value
+                mov    rdx, rdi
+                mov    [rsi + 0x3E],  edx
+                
+                ; (existing code, set P2's characterID to Tails)
+                mov    [rsi + 0x1A8], r14d
+            ",
+            /* DrillMobile::State_Air_Begin - 2.0.2: 0x14016C314 */
+            ScanSignature("\x0F\xB7\x11\x48\x8B\xC8\x41\xFF\x51\x60\x48\x8B\xCE\x44\x89\xB6\xA8\x01\x00\x00", "xxxxxxxxxxxxxxxxxxxx"),
+            HookBehavior.Replace
+        );
+
+        _isInitialised = true;
+    }
+
     if (RSDK.GetRSDKGlobalsPtr() == 0)
         return;
 
